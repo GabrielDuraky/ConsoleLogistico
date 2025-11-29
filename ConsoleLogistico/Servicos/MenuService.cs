@@ -14,11 +14,16 @@ public static class MenuService
 		var controleEstoque = new ControleEstoque(Path.Combine(basePath, "estoque.json"));
 		CalculadoraJuros.CalculadoraJuros? calcJuros = null;
 
-		try { calcJuros = new CalculadoraJuros.CalculadoraJuros(); } catch { /* opção ficará indisponível */ }
+		try { calcJuros = new CalculadoraJuros.CalculadoraJuros(); } // tenta inicializar a calculadora de juros
+        catch (Exception ex) 
+		{ 
+			Console.WriteLine($"Erro ao inicializar a CalculadoraJuros: {ex.Message}"); // loga o erro
+            calcJuros = null; // continua sem a calculadora de juros
+        }
 
 		int? ultimaOpcao = null;
-
-		while (true)
+        // Loop do menu principal
+        while (true)
 		{
 			Console.WriteLine("\nMENU:");
 			Console.WriteLine("1) Comissão de vendedores");
@@ -27,38 +32,38 @@ public static class MenuService
 			Console.WriteLine("4) Sair");
 			Console.Write("Escolha uma opção: ");
 			var opt = Console.ReadLine();
-
-			if (string.IsNullOrWhiteSpace(opt)) continue;
+            // Ignora entradas vazias
+            if (string.IsNullOrWhiteSpace(opt)) continue;
 
 			if (opt == "4")
 			{
 				ultimaOpcao = 4;
-				break;
-			}
+				break; // Sai do loop e retorna a última opção
+            }
 
 			switch (opt)
 			{
 				case "1":
-					var bonus = calcBonus.CalcularBonus();
-					Console.WriteLine("\nBÔNUS POR VENDEDOR:");
+					var bonus = calcBonus.CalcularBonus(); // calcula o bônus dos vendedores
+                    Console.WriteLine("\nBÔNUS POR VENDEDOR:");
 					foreach (var b in bonus)
 						Console.WriteLine($"{b.Key} = R$ {b.Value:F2}");
 					ultimaOpcao = 1;
 					break;
 
 				case "2":
-					MostrarEstoque(controleEstoque);
-					ultimaOpcao = 2;
+					MostrarEstoque(controleEstoque); // exibe o estoque e permite movimentações
+                    ultimaOpcao = 2;
 					break;
 
 				case "3":
-					if (calcJuros is null)
-					{
+					if (calcJuros is null) // verifica se a calculadora de juros foi inicializada
+                    {
 						Console.WriteLine("Calculadora de juros não encontrada.");
 						break;
 					}
-					ExecutarCalculadoraJuros(calcJuros);
-					ultimaOpcao = 3;
+					ExecutarCalculadoraJuros(calcJuros); // executa a calculadora de juros
+                    ultimaOpcao = 3;
 					break;
 
 				default:
@@ -67,18 +72,19 @@ public static class MenuService
 			}
 		}
 
-		return ultimaOpcao;
-	}
+		return ultimaOpcao; // retorna a última opção selecionada
+    }
 
-	// Métodos auxiliares movidos para o serviço (preserva lógica original)
-	private static void MostrarEstoque(ControleEstoque controle)
-	{
+    // Métodos auxiliares movidos para o serviço
+    // aqui para manter o MenuService organizado
+    private static void MostrarEstoque(ControleEstoque controle) // exibe o estoque e permite movimentações
+    {
 		var produtos = controle.ListarProdutos();
-		Console.WriteLine("\nID\tDescrição\t\tEstoque");
-		foreach (var p in produtos)
-			Console.WriteLine($"{p.CodigoProduto}\t{p.Descricao}\t\t{p.Estoque}");
+		Console.WriteLine("\nID\tDescrição\t\tEstoque"); // cabeçalho da tabela
+        foreach (var p in produtos)
+			Console.WriteLine($"{p.CodigoProduto}\t{p.Descricao}\t\t{p.Estoque}"); // exibe cada produto
 
-		int? id = ObterIdProduto();
+        int? id = ObterIdProduto();
 		if (id == null) return;
 
 		var produto = controle.ObterProduto(id.Value);
@@ -88,11 +94,12 @@ public static class MenuService
 			return;
 		}
 
-		ExecutarMovimentacao(controle, produto);
-	}
+		ExecutarMovimentacao(controle, produto); // executa a movimentação do produto selecionado
+                                                 // parametros: controle de estoque e o produto selecionado
+    }
 
-	private static int? ObterIdProduto()
-	{
+    private static int? ObterIdProduto() // obtém o ID do produto do usuário
+    {
 		Console.Write("\nDigite o ID do produto (ou Enter para voltar): ");
 		var idInput = Console.ReadLine();
 		if (string.IsNullOrWhiteSpace(idInput)) return null;
@@ -106,32 +113,77 @@ public static class MenuService
 
 	private static void ExecutarMovimentacao(ControleEstoque controle, Produto produto)
 	{
-		Console.WriteLine($"\nProduto: {produto.Descricao} - Estoque atual: {produto.Estoque}");
-		Console.WriteLine("1) Adicionar quantidade");
-		Console.WriteLine("2) Remover quantidade");
-		Console.Write("Escolha: ");
-		var op = Console.ReadLine();
-		if (string.IsNullOrWhiteSpace(op)) return;
+		while (true)
+		{
+			Console.WriteLine($"\nProduto: {produto.Descricao} - Estoque atual: {produto.Estoque}"); // exibe o produto e o estoque atual
+            Console.WriteLine("1) Cadastrar estoque novo"); // opções de movimentação
+            Console.WriteLine("2) Dar baixa no estoque"); // opções de movimentação
+            Console.WriteLine("3) Voltar");
+			Console.Write("Escolha: ");
+			var op = Console.ReadLine();
+			if (string.IsNullOrWhiteSpace(op)) continue;
+			if (op.Trim().Equals("3", StringComparison.OrdinalIgnoreCase)) return;
 
-		int quantidade = ObterQuantidade();
-		if (quantidade < 0) return;
+			if (!TentarObterTipoMovimentacao(op, out bool entrada)) continue;
 
-		var mov = new MovimentacaoEstoque
+			int quantidade = ObterQuantidade();
+			if (quantidade < 0) continue; // inválido -> reexibe submenu
+
+			var mov = CriarMovimentacao(entrada, quantidade);
+
+			if (TentarAplicarMovimentacao(controle, mov, produto.CodigoProduto, out int estoqueFinal))
+			{
+				Console.WriteLine($"Estoque final do produto {produto.CodigoProduto}: {estoqueFinal}");
+				return; // operação bem-sucedida volta ao submenu anterior
+			}
+			else
+			{
+				if (!PerguntarTentarNovamente()) return;
+			}
+		}
+	}
+
+	private static bool TentarObterTipoMovimentacao(string? op, out bool entrada)
+	{
+		entrada = false;
+		if (string.IsNullOrWhiteSpace(op)) return false;
+		if (op.Trim().Equals("3", StringComparison.OrdinalIgnoreCase)) return true;
+		if (op == "1") { entrada = true; return true; }
+		if (op == "2") { entrada = false; return true; }
+		Console.WriteLine("Opção inválida. Tente novamente.");
+		return false;
+	}
+
+	private static bool PerguntarTentarNovamente()
+	{
+		Console.Write("Tentar novamente? (s/N): ");
+		var r = Console.ReadLine();
+		return !string.IsNullOrWhiteSpace(r) && r.Trim().Equals("s", StringComparison.OrdinalIgnoreCase);
+	}
+
+	private static MovimentacaoEstoque CriarMovimentacao(bool entrada, int quantidade)
+	{
+		return new MovimentacaoEstoque
 		{
 			Id = new Random().Next(1, int.MaxValue),
-			Descricao = op == "1" ? "Entrada manual" : "Saída manual",
+			Descricao = entrada ? "Entrada manual" : "Saída manual",
 			Quantidade = quantidade,
-			Entrada = op == "1"
+			Entrada = entrada
 		};
+	}
 
+	private static bool TentarAplicarMovimentacao(ControleEstoque controle, MovimentacaoEstoque mov, int codigoProduto, out int estoqueFinal)
+	{
 		try
 		{
-			int estoqueFinal = controle.AplicarMovimentacao(mov, produto.CodigoProduto);
-			Console.WriteLine($"Estoque final do produto {produto.CodigoProduto}: {estoqueFinal}");
+			estoqueFinal = controle.AplicarMovimentacao(mov, codigoProduto);
+			return true;
 		}
 		catch (Exception ex)
 		{
 			Console.WriteLine($"Erro ao aplicar movimentação: {ex.Message}");
+			estoqueFinal = 0;
+			return false;
 		}
 	}
 
@@ -149,26 +201,24 @@ public static class MenuService
 
 	private static void ExecutarCalculadoraJuros(CalculadoraJuros.CalculadoraJuros calc)
 	{
-		Console.Write("Valor original: ");
-		string? valorInput = Console.ReadLine();
-		if (string.IsNullOrWhiteSpace(valorInput))
+		decimal valor;
+		while (true)
 		{
-			Console.WriteLine("Valor inválido.");
-			return;
-		}
-		if (!decimal.TryParse(valorInput, NumberStyles.Number, CultureInfo.CurrentCulture, out var valor))
-		{
-			Console.WriteLine("Valor inválido.");
-			return;
+			Console.Write("Valor original (Enter para voltar): ");
+			string? valorInput = Console.ReadLine();
+			if (string.IsNullOrWhiteSpace(valorInput)) { Console.WriteLine("Operação cancelada."); return; }
+			if (decimal.TryParse(valorInput, NumberStyles.Number, CultureInfo.CurrentCulture, out valor)) break;
+			Console.WriteLine("Valor inválido. Tente novamente.");
 		}
 
-		Console.Write("Data de vencimento (DD/MM/AAAA): ");
-		string? vencimentoInput = ReadMaskedDateInput();
-		if (string.IsNullOrWhiteSpace(vencimentoInput)
-			|| !DateTime.TryParseExact(vencimentoInput, "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime vencimento))
+		DateTime vencimento;
+		while (true)
 		{
-			Console.WriteLine("Data inválida.");
-			return;
+			Console.Write("Data de vencimento (DD/MM/AAAA) (Enter para voltar): ");
+			string? vencimentoInput = ReadMaskedDateInput();
+			if (string.IsNullOrWhiteSpace(vencimentoInput)) { Console.WriteLine("Operação cancelada."); return; }
+			if (DateTime.TryParseExact(vencimentoInput, "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out vencimento)) break;
+			Console.WriteLine("Data inválida. Tente novamente.");
 		}
 
 		decimal resultado = calc.Calcular(valor, vencimento);
@@ -179,7 +229,7 @@ public static class MenuService
 	{
 		var digits = new StringBuilder(8);
 		int prevLen = 0;
-		string prompt = "Data de vencimento (DD/MM/AAAA): ";
+		string prompt = "Data de vencimento (DD/MM/AAAA) (Enter para voltar): ";
 
 		while (true)
 		{

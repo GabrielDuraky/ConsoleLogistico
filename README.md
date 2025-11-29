@@ -8,7 +8,7 @@ Aplicação console em C# para simular operações de:
 
 ---
 
-## 🧰 Funcionalidades
+## Funcionalidades
 
 1. **Controle de estoque** — permite registrar movimentações de entrada ou saída de produtos, com atualização automática da quantidade em estoque.  
 2. **Cálculo de comissão/bônus** — recebe uma lista de vendas (JSON), agrupa por vendedor e aplica regras de bônus conforme regra definida.  
@@ -16,7 +16,7 @@ Aplicação console em C# para simular operações de:
 
 ---
 
-## 🔧 Como rodar
+## Como rodar
 
 1. Instale o [.NET SDK 7.0+ ou 8.0+] no seu sistema.  
 2. Clone este repositório:  

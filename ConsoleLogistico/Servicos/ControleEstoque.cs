@@ -92,9 +92,26 @@ public class ControleEstoque
 
 	public int AplicarMovimentacao(MovimentacaoEstoque mov, int codigoProduto)
 	{
+		if (mov is null)
+			throw new ArgumentNullException(nameof(mov));
+
+		if (mov.Quantidade < 0)
+			throw new ArgumentException("Quantidade da movimentação não pode ser negativa.", nameof(mov));
+
 		var produto = ObterProduto(codigoProduto);
 		if (produto == null)
 			throw new ArgumentException("Produto não encontrado.");
+
+		// Validações para evitar estoque negativo
+		if (!mov.Entrada) // se for saída
+		{
+			if (produto.Estoque <= 0)
+				throw new InvalidOperationException("Estoque vazio. Não é possível remover.");
+
+			if (mov.Quantidade > produto.Estoque)
+				throw new InvalidOperationException($"Quantidade solicitada ({mov.Quantidade}) excede o estoque atual ({produto.Estoque}).");
+		}
+
 		if (mov.Entrada)
 			produto.Estoque += mov.Quantidade; // Adições ao estoque
         else
