@@ -2,9 +2,9 @@
 
 namespace ConsoleLogistico.Modelos
 {
-	public class Venda
-	{
-		public string Vendedor { get; set; }
-		public double Valor { get; set; }
-	}
+    public class Venda // Classe para representar as vendas realizadas
+    {
+        public string Vendedor { get; set; } = string.Empty;
+        public double Valor { get; set; }
+    }
 }
